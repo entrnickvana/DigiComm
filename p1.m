@@ -124,6 +124,7 @@ f = a:(b-a)/samples:b
 
 Xf = 1./sqrt(1 + 4*pi*pi.*(f-(0*fs)).^2)
 Xf1 = 1./sqrt(1 + 4*pi*pi.*(f-(1*fs)).^2)
+X_fs = Xf
 
 subplot(3,1,1)
 plot(fc, Xfc)
@@ -151,4 +152,63 @@ ylim([0 1.5])
 xlabel("f     @ T_s = 10ms, f_s = 100Hz")
 ylabel("|X_s(f)| ")
 title("|X(f)| Sampled Signal Spectrum")
+
+%% Part c
+
+% continious signal x(t) = e^(-t)*u(t)
+Tc = 1e-3
+tc = (0:8*1024)*Tc
+x_tc = exp(-tc).*heaviside(tc)
+
+Ts = 0.01
+ts = (0:1024)*Ts
+x_ts =  Ts*exp(-ts).*heaviside(ts)
+
+Xf = fft(x_ts, 1024)
+
+
+figure(5)
+subplot(3, 1, 1)
+plot(tc, x_tc)
+xlabel('t    (Simulated continious, T_s = 1ms)')
+ylabel('x(t)')
+ylim([0 1.5])
+
+subplot(3, 1, 2)
+stem(ts, x_ts)
+xlabel('t_s   @ T_s = 10ms')
+ylabel('x_s(t)')
+
+subplot(3, 1, 3)
+plot(abs(Xf))
+ylabel('X_s(f)')
+xlabel('f')
+xlim([0 1/(2*Ts)])
+ylim([0 1.5])
+title('Spectrum T_s|X_s(f)|,  N = 1024 Point FFT')
+
+figure(6)
+subplot(3, 1, 1)
+plot(X_fs)
+xlim([0 1/(2*Ts)])
+ylim([0 1.5])
+
+subplot(3, 1, 2)
+plot(abs(Xf))
+xlim([0 1/(2*Ts)])
+ylim([0 1.5])
+
+subplot(3, 1, 3)
+plot(X_fs)
+hold on
+plot(abs(Xf))
+hold off
+legend('Calculated Spectrum T_s|X_s(f)|', 'FFT Spectrum |X_s(f)|')
+xlim([0 1/(2*Ts)])
+ylim([0 1.5])
+
+
+
+
+
 
