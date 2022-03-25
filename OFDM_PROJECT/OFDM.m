@@ -70,7 +70,6 @@ end
 hold off;
 
 
-
 % 4. Following Figure 6.7 of the class text, by calling/using the above functions/codes, develop a program
 %    for an OFDM transceiver (transmitter plus receiver) with IFFT/FFT length 16 and CP length 4.
 %    Assuming an ideal channel, examine the correct functionality of your codes.
