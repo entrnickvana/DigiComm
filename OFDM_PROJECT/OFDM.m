@@ -34,7 +34,7 @@ rng('default')
 %    bits to a matrix with 32 rows. We will transmit one column of this matrix th2ough each OFDM
 %    symbol.
 
-raw_bits_short = file2bin('input_short.txt');
+raw_bits_short = file2bin('input.txt');
 remainder = mod(length(raw_bits_short), 32)
 padding = rand(32 - remainder, 1);
 padding(padding <= 0.5) = 0;
@@ -62,13 +62,20 @@ s_k = reshape(raw_bits_mod, 32, []);
 %    bin2file(...)
 
 figure(666)
+out_bits = [];
 for ii = 1:length(s_k(1,:))-1
-  S8 = bits2QPSK(s_k(:, ii));
-  scatter(real(S8), imag(S8));
+  sk_tmp = bits2QPSK(s_k(:, ii));
+  TX = bits2QPSK(s_k(:, ii));
+  scatter(real(TX), imag(TX));
   hold on;
+
+  RX = QPSK2bits(TX);
+  out_bits = [out_bits RX(1, :) RX(2, :) RX(3, :) RX(4, :) RX(5, :) RX(6, :) RX(7, :) RX(8, :) ];
 end
 
 hold off;
+
+bin2file(out_bits, 'crazy_output.txt');
 
 
 % 4. Following Figure 6.7 of the class text, by calling/using the above functions/codes, develop a program

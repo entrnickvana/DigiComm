@@ -6,6 +6,10 @@ function [B] = QPSK2bits(symbols)
 for ii = 1:8
     symbols(ii)
     (symbols_theta(ii)/(2*pi))*360
+    if(symbols_theta(ii) < 0)
+    	symbols_theta(ii) = 2*pi + symbols_theta(ii);
+    end
+    (symbols_theta(ii)/(2*pi))*360    
  if     ((symbols_theta(ii) >= 2*pi*(31/32) & symbols_theta(ii) < 2*pi) | (symbols_theta(ii) >= 0 & symbols_theta(ii) < 2*pi*(1/32)));
  	B(ii, :) = [0 0 0 0]';    	
  elseif (symbols_theta(ii) >= 2*pi*((2*1 - 1)/32) & symbols_theta(ii) < 2*pi*( (1 +  2*1)/32));     
