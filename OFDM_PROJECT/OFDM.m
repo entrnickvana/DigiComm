@@ -60,6 +60,7 @@ s_k = reshape(raw_bits_mod, 32, []);
 %    convert QPSK symbols to bits
 %    convert the matrix of bits to a column vector
 %    bin2file(...)
+
 figure(666)
 for ii = 1:length(s_k(1,:))-1
   S8 = bits2QPSK(s_k(:, ii));

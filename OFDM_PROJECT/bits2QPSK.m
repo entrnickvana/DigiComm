@@ -1,15 +1,15 @@
-
+    
 function [S] = bits2QPSK(bits)
     B = zeros(8, 1);
     S = zeros(8, 1);
-	B(1) = binaryVectorToDecimal(bits(1 + 4*0:4 + 4*0)');
-	B(2) = binaryVectorToDecimal(bits(1 + 4*1:4 + 4*1)');	
-	B(3) = binaryVectorToDecimal(bits(1 + 4*2:4 + 4*2)');
-	B(4) = binaryVectorToDecimal(bits(1 + 4*3:4 + 4*3)');
-	B(5) = binaryVectorToDecimal(bits(1 + 4*4:4 + 4*4)');
-	B(6) = binaryVectorToDecimal(bits(1 + 4*5:4 + 4*5)');
-	B(7) = binaryVectorToDecimal(bits(1 + 4*6:4 + 4*6)');
-	B(8) = binaryVectorToDecimal(bits(1 + 4*7:4 + 4*7)');
+	B(1) = binaryVectorToDecimal(bits(1 + 4*0:4 + 4*0));
+	B(2) = binaryVectorToDecimal(bits(1 + 4*1:4 + 4*1));	
+	B(3) = binaryVectorToDecimal(bits(1 + 4*2:4 + 4*2));
+	B(4) = binaryVectorToDecimal(bits(1 + 4*3:4 + 4*3));
+	B(5) = binaryVectorToDecimal(bits(1 + 4*4:4 + 4*4));
+	B(6) = binaryVectorToDecimal(bits(1 + 4*5:4 + 4*5));
+	B(7) = binaryVectorToDecimal(bits(1 + 4*6:4 + 4*6));
+	B(8) = binaryVectorToDecimal(bits(1 + 4*7:4 + 4*7));
 
     %                  1010
     %              1110    1011
