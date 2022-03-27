@@ -13,7 +13,7 @@
 close all;
 rng('default')
 
-
+j=i;
 
 % 1.  On class canvas you find the pair of MATLAB functions file2bin.m and bin2file.m. Study these two
 %     functions and confirm their operation by converting a .txt file (here, call it ‘input.txt’) to binary,
@@ -34,19 +34,26 @@ rng('default')
 %    bits to a matrix with 32 rows. We will transmit one column of this matrix th2ough each OFDM
 %    symbol.
 
-raw_bits_short = file2bin('input.txt');
+
+%% Read File to bit vector
+raw_bits_short = file2bin('short.txt');
+
+%% Calculate padding
 remainder = mod(length(raw_bits_short), 32)
 padding = rand(32 - remainder, 1);
 padding(padding <= 0.5) = 0;
 padding(padding > 0.5) = 1;
 %stem(padding)
 raw_bits_mod = [raw_bits_short; padding];
-figure()
-subplot(2, 1, 1)
-stem(raw_bits_short)
-subplot(2, 1, 2)
-stem(raw_bits_mod)
 
+%% Show row input bits for debug
+%figure()
+%subplot(2, 1, 1)
+%stem(raw_bits_short)
+%subplot(2, 1, 2)
+%stem(raw_bits_mod)
+
+%% SERDES (Serial to Parallel with reshape)
 s_k = reshape(raw_bits_mod, 32, []);
 
 % 3. Develop a MATLAB function that take a column of 32 bits, and covert them to a column of
@@ -61,21 +68,50 @@ s_k = reshape(raw_bits_mod, 32, []);
 %    convert the matrix of bits to a column vector
 %    bin2file(...)
 
-figure(666)
+%% Continious processing loop
+%out_bits = [];
+%for ii = 1:length(s_k(1,:))-1
+%  sk_tmp = bits2QPSK(s_k(:, ii));
+%  TX = bits2QPSK(s_k(:, ii));
+%
+%
+%  scatter(real(TX), imag(TX));
+%  hold on;
+%
+%  RX = QPSK2bits(TX);
+%  out_bits = [out_bits RX(1, :) RX(2, :) RX(3, :) RX(4, :) RX(5, :) RX(6, :) RX(7, :) RX(8, :) ];
+%end
+%
+%hold off;
+
 out_bits = [];
+x_k = zeros(8, 1)
+m = [0:15];
+N = 16;
 for ii = 1:length(s_k(1,:))-1
   sk_tmp = bits2QPSK(s_k(:, ii));
-  TX = bits2QPSK(s_k(:, ii));
-  scatter(real(TX), imag(TX));
-  hold on;
+  x_k = [x_k bits2QPSK(s_k(:, ii))];
 
-  RX = QPSK2bits(TX);
-  out_bits = [out_bits RX(1, :) RX(2, :) RX(3, :) RX(4, :) RX(5, :) RX(6, :) RX(7, :) RX(8, :) ];
+  sk0 = sk_tmp(0+1).*exp(((j*2*pi*0)/N).*m);
+  sk1 = sk_tmp(1+1).*exp(((j*2*pi*1)/N).*m);
+  sk2 = sk_tmp(2+1).*exp(((j*2*pi*2)/N).*m);
+  sk3 = sk_tmp(3+1).*exp(((j*2*pi*3)/N).*m);
+  sk4 = sk_tmp(4+1).*exp(((j*2*pi*4)/N).*m);
+  sk5 = sk_tmp(5+1).*exp(((j*2*pi*5)/N).*m);
+  sk6 = sk_tmp(6+1).*exp(((j*2*pi*6)/N).*m);
+  sk7 = sk_tmp(7+1).*exp(((j*2*pi*7)/N).*m);
+
+  sk_agg = sk0 + sk1 + sk2 + sk3 + sk4 + sk5 + sk6 + sk7;
+
+
+  x_k_mod = ifft(transpose(sk_tmp), 16);
+  %scatter(real(x_k), imag(x_k));
+  %hold on;
+
 end
-
 hold off;
 
-bin2file(out_bits, 'crazy_output.txt');
+%bin2file(out_bits, 'crazy_output.txt');
 
 
 % 4. Following Figure 6.7 of the class text, by calling/using the above functions/codes, develop a program
@@ -91,4 +127,3 @@ bin2file(out_bits, 'crazy_output.txt');
 %    arbitrary channel of a length smaller than or equal to the CP length.
 
 % 6. Examine the functionality of your code by adding channel noise and a few random choices of the
-%    channel impulse response.
