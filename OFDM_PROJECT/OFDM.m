@@ -37,10 +37,10 @@ j=i;
 
 %% Read File to bit vector
 
-raw_bits_short = file2bin('input.txt');
+raw_bits_short = file2bin('short.txt');
 
 %% Calculate padding
-remainder = mod(length(raw_bits_short), 32)
+remainder = mod(length(raw_bits_short), 32);
 padding = rand(32 - remainder, 1);
 padding(padding <= 0.5) = 0;
 padding(padding > 0.5) = 1;
@@ -85,9 +85,10 @@ TX = xk;
 
 %% Add channel noise and rx noise
 %RX = TX;
+%% Load Equalization
 RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j]');
-eq_coeff = load('coeff.mat');
-eq_c = eq_coeff.out;
+%eq_coeff = load('coeff.mat');
+%eq_c = eq_coeff.out;
 
 %% Serialize and FFT
 sk_rx = [];
@@ -95,9 +96,9 @@ for ll = 20:20:length(RX)-20
 	yk_tmp_cp = RX(ll-19:ll);	
 	yk_tmp = RX(ll-19:ll-4);
 	sk_rx_tmp = fft(yk_tmp, 16);
-	sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
-	%sk_rx = [sk_rx sk_rx_tmp];	
-	sk_rx = [sk_rx sk_rx_tmp_corrected];
+	%sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
+	sk_rx = [sk_rx sk_rx_tmp];	
+	%sk_rx = [sk_rx sk_rx_tmp_corrected];
 end
 
 %% Reserialize
@@ -109,10 +110,33 @@ end
 
 bin2file(rx_bits, 'qam4_channel_test.txt');
 
+%% Debug Equalizer
+eq_coeff = [];
+for ii = 1:length(sk_rx(:,1))-10
+    eq_tmp = sk_rx(:, ii)./sk(:, ii);
+	eq_coeff = [eq_coeff eq_tmp];
+	corrected_rx = sk_rx(:, ii)./eq_tmp;
+
+	figure(122)
+	subplot(4,1,1)
+	stem(real(sk(:,ii))); hold on; stem(real(sk_rx(:,ii))); hold off;
+	legend('real sk tx', 'real sk rx');
+	subplot(4,1,2)
+	stem(imag(sk(:,ii))); hold on; stem(imag(sk_rx(:,ii))); hold off;	
+	legend('imag sk tx', 'imag sk rx');	
+	subplot(4,1,3)
+	stem(real(sk(:,ii))); hold on; stem(real(sk_rx(:,ii))); stem(real(corrected_rx)); hold off;	
+	legend('real sk tx', 'real sk rx', 'real corrected rx');		
+	subplot(4,1,4)
+	stem(imag(sk(:,ii))); hold on; stem(imag(sk_rx(:,ii))); stem(imag(corrected_rx)); hold off;	
+	legend('imag sk tx', 'imag sk rx', 'imag corrected rx');		
+
+end
+
+return
+
 eq1 = sk_rx_tmp./sk_tmp;
 sk_rx_corrected = sk_rx_tmp./eq1;
-out = eq1;
-save('coeff.mat', 'out');
 
 subplot(4, 1, 1)
 stem(real(sk_tmp));
