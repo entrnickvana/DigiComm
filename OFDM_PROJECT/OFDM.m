@@ -37,7 +37,7 @@ j=i;
 
 %% Read File to bit vector
 
-raw_bits_short = file2bin('short.txt');
+raw_bits_short = file2bin('input.txt');
 
 %% Calculate padding
 remainder = mod(length(raw_bits_short), 32);
@@ -74,7 +74,8 @@ xk = [];
 xk_no_cp = [];
 for kk = 1:length(sk)
 	xk_tmp = ifft(sk(:, kk), 16);
-	xk_tmp_cp = [xk_tmp; xk_tmp(end-L:end)];
+	xk_tmp_cp = [xk_tmp(end-L:end); xk_tmp];
+	%xk_tmp_cp = [xk_tmp; xk_tmp(end-L:end)];	
 	xk_no_cp = [xk_no_cp; xk_tmp];
 	xk = [xk; xk_tmp_cp];
 end
@@ -87,18 +88,19 @@ TX = xk;
 %RX = TX;
 %% Load Equalization
 RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j]');
-%eq_coeff = load('coeff.mat');
-%eq_c = eq_coeff.out;
+eq_coeff = load('eq_coeff.mat');
+eq_c = eq_coeff.out;
 
 %% Serialize and FFT
 sk_rx = [];
 for ll = 20:20:length(RX)-20
 	yk_tmp_cp = RX(ll-19:ll);	
-	yk_tmp = RX(ll-19:ll-4);
+	%yk_tmp = RX(ll-19:ll-4);
+	yk_tmp = RX(ll-19+4:ll);	
 	sk_rx_tmp = fft(yk_tmp, 16);
-	%sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
-	sk_rx = [sk_rx sk_rx_tmp];	
-	%sk_rx = [sk_rx sk_rx_tmp_corrected];
+	sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
+	%sk_rx = [sk_rx sk_rx_tmp];	
+	sk_rx = [sk_rx sk_rx_tmp_corrected];
 end
 
 %% Reserialize
@@ -109,6 +111,8 @@ for jj = 1:length(sk_rx(1, :))
 end
 
 bin2file(rx_bits, 'qam4_channel_test.txt');
+
+return
 
 %% Debug Equalizer
 eq_coeff = [];
