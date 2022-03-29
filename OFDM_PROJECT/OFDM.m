@@ -36,7 +36,8 @@ j=i;
 
 
 %% Read File to bit vector
-raw_bits_short = file2bin('short.txt');
+
+raw_bits_short = file2bin('input.txt');
 
 %% Calculate padding
 remainder = mod(length(raw_bits_short), 32)
@@ -83,25 +84,107 @@ end
 TX = xk;
 
 %% Add channel noise and rx noise
+%RX = TX;
+RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j]');
+eq_coeff = load('coeff.mat');
+eq_c = eq_coeff.out;
 
-%% Syncronize
-RX = TX;
-
-%% Serialize
+%% Serialize and FFT
 sk_rx = [];
-for ll = 1:20:length(RX)
-	yk_tmp = RX(ll:ll+16-1);
+for ll = 20:20:length(RX)-20
+	yk_tmp_cp = RX(ll-19:ll);	
+	yk_tmp = RX(ll-19:ll-4);
 	sk_rx_tmp = fft(yk_tmp, 16);
-	sk_rx = [sk_rx sk_rx_tmp];
+	sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
+	%sk_rx = [sk_rx sk_rx_tmp];	
+	sk_rx = [sk_rx sk_rx_tmp_corrected];
 end
 
+%% Reserialize
 rx_bits = [];
 for jj = 1:length(sk_rx(1, :))
 	rx_bits_tmp = QPSK2bits(sk_rx(:,jj));
 	rx_bits = [rx_bits; rx_bits_tmp];
 end
 
-bin2file(rx_bits, 'qam4.txt');
+bin2file(rx_bits, 'qam4_channel_test.txt');
+
+eq1 = sk_rx_tmp./sk_tmp;
+sk_rx_corrected = sk_rx_tmp./eq1;
+out = eq1;
+save('coeff.mat', 'out');
+
+subplot(4, 1, 1)
+stem(real(sk_tmp));
+hold on;
+stem(real(sk_rx_tmp));
+legend('real tx', 'real rx')
+hold off;
+subplot(4, 1, 2)
+stem(imag(sk_tmp));
+hold on;
+stem(imag(sk_rx_tmp));
+legend('imag tx', 'imag rx')
+hold off;
+subplot(4, 1, 3)
+stem(real(sk_tmp));
+hold on;
+stem(real(sk_rx_corrected));
+legend('real tx', 'real corrected rx')
+hold off;
+legend('real rx', 'real eq rx')
+subplot(4, 1, 4)
+stem(imag(sk_tmp));
+hold on;
+stem(imag(sk_rx_corrected));
+legend('imag tx', 'imag corrected rx')
+hold off;
+
+
+
+
+
+
+
+%figure(123)
+%subplot(4, 2, 1)
+%stem(real(xk_tmp));
+%title('x real')
+%subplot(4, 2, 2)
+%stem(imag(xk_tmp));
+%title('x imag')
+%subplot(4, 2, 3)
+%stem(real(yk_tmp));
+%title('y real')
+%subplot(4, 2, 4)
+%stem(imag(yk_tmp));
+%title('y imag')
+%subplot(4, 2, 5)
+%stem(real_eq);
+%hold on;
+%stem(imag_eq);
+%legend('real eq', 'imag eq');
+%hold off;
+%subplot(4, 2, 6)
+%stem(real(yk_tmp));
+%hold on;
+%stem(real(eq_result));
+%legend('y real', 'eq real result')
+%hold off;
+%subplot(4, 2, 7)
+%stem(imag(yk_tmp));
+%hold on;
+%stem(imag(eq_result));
+%legend('y imag', 'eq imag result')
+%hold off;
+%subplot(4, 2, 8)
+%stem(real(xk_tmp));
+%hold on;
+%stem(real(eq_result));
+%legend('y real', 'x real result')
+%hold off;
+
+
 
 
 % 3. Develop a MATLAB function that take a column of 32 bits, and covert them to a column of
