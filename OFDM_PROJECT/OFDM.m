@@ -54,7 +54,55 @@ raw_bits_mod = [raw_bits_short; padding];
 %stem(raw_bits_mod)
 
 %% SERDES (Serial to Parallel with reshape)
-s_k = reshape(raw_bits_mod, 32, []);
+sk_bits = reshape(raw_bits_mod, 32, []);
+
+%% Map 32 bit vectors to 16 4bit QPSK/QAM symbols
+sk = [];
+for ii = 1:length(sk_bits(1,:))
+	sk_tmp = bits2QPSK(sk_bits(1:32,ii));
+	sk = [sk sk_tmp];
+end
+
+%% Symbol Debug
+%figure(1)
+%scatter(real(sk), imag(sk));
+
+%% OFDM IFFT of 16 parallel symobols to a multiplexed TX packet
+L=4-1;
+xk = [];
+xk_no_cp = [];
+for kk = 1:length(sk)
+	xk_tmp = ifft(sk(:, kk), 16);
+	xk_tmp_cp = [xk_tmp; xk_tmp(end-L:end)];
+	xk_no_cp = [xk_no_cp; xk_tmp];
+	xk = [xk; xk_tmp_cp];
+end
+
+
+%% Add channel effects
+TX = xk;
+
+%% Add channel noise and rx noise
+
+%% Syncronize
+RX = TX;
+
+%% Serialize
+sk_rx = [];
+for ll = 1:20:length(RX)
+	yk_tmp = RX(ll:ll+16-1);
+	sk_rx_tmp = fft(yk_tmp, 16);
+	sk_rx = [sk_rx sk_rx_tmp];
+end
+
+rx_bits = [];
+for jj = 1:length(sk_rx(1, :))
+	rx_bits_tmp = QPSK2bits(sk_rx(:,jj));
+	rx_bits = [rx_bits; rx_bits_tmp];
+end
+
+bin2file(rx_bits, 'qam4.txt');
+
 
 % 3. Develop a MATLAB function that take a column of 32 bits, and covert them to a column of
 %    16 QPSK symbols, using a gray coding of your choice. Call it bits2QPSK.m Also, develop the
@@ -68,48 +116,7 @@ s_k = reshape(raw_bits_mod, 32, []);
 %    convert the matrix of bits to a column vector
 %    bin2file(...)
 
-%% Continious processing loop
-%out_bits = [];
-%for ii = 1:length(s_k(1,:))-1
-%  sk_tmp = bits2QPSK(s_k(:, ii));
-%  TX = bits2QPSK(s_k(:, ii));
-%
-%
-%  scatter(real(TX), imag(TX));
-%  hold on;
-%
-%  RX = QPSK2bits(TX);
-%  out_bits = [out_bits RX(1, :) RX(2, :) RX(3, :) RX(4, :) RX(5, :) RX(6, :) RX(7, :) RX(8, :) ];
-%end
-%
-%hold off;
 
-out_bits = [];
-x_k = zeros(8, 1)
-m = [0:15];
-N = 16;
-for ii = 1:length(s_k(1,:))-1
-  sk_tmp = bits2QPSK(s_k(:, ii));
-  x_k = [x_k bits2QPSK(s_k(:, ii))];
-
-  sk0 = sk_tmp(0+1).*exp(((j*2*pi*0)/N).*m);
-  sk1 = sk_tmp(1+1).*exp(((j*2*pi*1)/N).*m);
-  sk2 = sk_tmp(2+1).*exp(((j*2*pi*2)/N).*m);
-  sk3 = sk_tmp(3+1).*exp(((j*2*pi*3)/N).*m);
-  sk4 = sk_tmp(4+1).*exp(((j*2*pi*4)/N).*m);
-  sk5 = sk_tmp(5+1).*exp(((j*2*pi*5)/N).*m);
-  sk6 = sk_tmp(6+1).*exp(((j*2*pi*6)/N).*m);
-  sk7 = sk_tmp(7+1).*exp(((j*2*pi*7)/N).*m);
-
-  sk_agg = sk0 + sk1 + sk2 + sk3 + sk4 + sk5 + sk6 + sk7;
-
-
-  x_k_mod = ifft(transpose(sk_tmp), 16);
-  %scatter(real(x_k), imag(x_k));
-  %hold on;
-
-end
-hold off;
 
 %bin2file(out_bits, 'crazy_output.txt');
 
@@ -126,4 +133,16 @@ hold off;
 %    arbitrary OFDM symbol of your choice modify your code to be able to transmit data through any
 %    arbitrary channel of a length smaller than or equal to the CP length.
 
+
 % 6. Examine the functionality of your code by adding channel noise and a few random choices of the
+%    channel impulse response.
+
+
+% Note: Since the transmission is through an equivalent baseband channel, all signals, including channel
+% noise and impulse response are, in general, complex-valued.
+% Report: Summarize your finding in a report, consisting an abstract of 100 words or less, an introduction
+% explaining how OFDM works (think of teaching one of your peers), two or three sections explaining your
+% codes, and a conclusion of 100 words or less. The total length of your report should be limited to 3
+% pages of double space text and as many figures as you wish. Keep text and figures in separate
+% pages. Submit a pdf copy of your report along with your MATLAB codes all in a zip file with the name
+% DigCom2022Project(your name).zip. Upload on canvas.
