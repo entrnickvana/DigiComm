@@ -34,10 +34,10 @@ j=i;
 %    bits to a matrix with 32 rows. We will transmit one column of this matrix th2ough each OFDM
 %    symbol.
 
-
 %% Read File to bit vector
-
+dbg = 1;
 raw_bits_short = file2bin('input.txt');
+pilot_seq = file2bin('pilot_sequence.txt');
 
 %% Calculate padding
 remainder = mod(length(raw_bits_short), 32);
@@ -47,21 +47,33 @@ padding(padding > 0.5) = 1;
 %stem(padding)
 raw_bits_mod = [raw_bits_short; padding];
 
-%% Show row input bits for debug
-%figure()
-%subplot(2, 1, 1)
-%stem(raw_bits_short)
-%subplot(2, 1, 2)
-%stem(raw_bits_mod)
 
 %% SERDES (Serial to Parallel with reshape)
-sk_bits = reshape(raw_bits_mod, 32, []);
+test_bits = reshape(pilot_seq, 32, []);
+bits = reshape(raw_bits_mod, 32, []);
+
+%% SERDES bits with pilot sequence at beginning
+sk_bits = [test_bits bits];
 
 %% Map 32 bit vectors to 16 4bit QPSK/QAM symbols
 sk = [];
+test_sk = [];
 for ii = 1:length(sk_bits(1,:))
 	sk_tmp = bits2QPSK(sk_bits(1:32,ii));
 	sk = [sk sk_tmp];
+
+	if(ii == 4 & dbg == 1)
+		test_sk = [test_sk sk(:,1:4)];
+		figure(1)
+		subplot(4,1,1)
+		stem(real(test_sk(:,1))); hold on; stem(imag(test_sk(:,1))); hold off;
+		subplot(4,1,2)
+		stem(real(test_sk(:,2))); hold on; stem(imag(test_sk(:,2))); hold off;		
+		subplot(4,1,3)
+		stem(real(test_sk(:,3))); hold on; stem(imag(test_sk(:,3))); hold off;		
+		subplot(4,1,4)
+		stem(real(test_sk(:,4))); hold on; stem(imag(test_sk(:,4))); hold off;				
+	end
 end
 
 %% Symbol Debug
@@ -87,21 +99,43 @@ TX = xk;
 %% Add channel noise and rx noise
 %RX = TX;
 %% Load Equalization
-RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j]');
-eq_coeff = load('eq_coeff.mat');
-eq_c = eq_coeff.out;
+RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j].');
+%eq_coeff = load('eq_coeff.mat');
+%eq_c = eq_coeff.out;
 
 %% Serialize and FFT
 sk_rx = [];
-for ll = 20:20:length(RX)-20
-	yk_tmp_cp = RX(ll-19:ll);	
+equalizer = ones(16,1);
+for ii = 20:20:length(RX)-20
 	%yk_tmp = RX(ll-19:ll-4);
-	yk_tmp = RX(ll-19+4:ll);	
+	yk_tmp = RX(ii-19+4:ii);	
 	sk_rx_tmp = fft(yk_tmp, 16);
-	sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
-	%sk_rx = [sk_rx sk_rx_tmp];	
-	sk_rx = [sk_rx sk_rx_tmp_corrected];
+	%sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
+    sk_rx = [sk_rx sk_rx_tmp./equalizer];
+
+	%sk_rx = [sk_rx sk_rx_tmp_corrected];
+	if( ii == 20*4)
+		test_sk_rx = sk_rx(:, 1:4);
+		eq1 = test_sk_rx(:,1)./test_sk(:,1);
+		eq2 = test_sk_rx(:,2)./test_sk(:,2);
+		eq3 = test_sk_rx(:,3)./test_sk(:,3);
+		eq4 = test_sk_rx(:,4)./test_sk(:,4);
+		equalizer = eq1;
+		if(dbg == 1)
+		  figure(2)
+		  subplot(4,1,1)
+		  stem(real(test_sk_rx(:,1))); hold on; stem(imag(test_sk_rx(:,1))); hold off;
+		  subplot(4,1,2)
+		  stem(real(test_sk_rx(:,2))); hold on; stem(imag(test_sk_rx(:,2))); hold off;		
+		  subplot(4,1,3)
+		  stem(real(test_sk_rx(:,3))); hold on; stem(imag(test_sk_rx(:,3))); hold off;		
+		  subplot(4,1,4)
+		  stem(real(test_sk_rx(:,4))); hold on; stem(imag(test_sk_rx(:,4))); hold off;				
+		end
+	end
 end
+
+sk_rx = sk_rx(:,5:end);
 
 %% Reserialize
 rx_bits = [];
@@ -110,7 +144,7 @@ for jj = 1:length(sk_rx(1, :))
 	rx_bits = [rx_bits; rx_bits_tmp];
 end
 
-bin2file(rx_bits, 'qam4_channel_test.txt');
+bin2file(rx_bits, 'pilot_test2.txt');
 
 return
 
