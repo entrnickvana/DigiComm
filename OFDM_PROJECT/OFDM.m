@@ -1,70 +1,40 @@
-
-%ECE 5520, Spring 2022
-%Project: OFDM TransceiverDue: March 29 (Tuesday)
-%In this project, you are guided to develop an OFDM transceiver system.
-
-%function [padded_data] = gen_padding(data)
-%	remainder = mod(length(data), 32);
-%	padding = rand(32 - remainder, 1);
-%	padding(padding >= 0.5) = 1;
-%	padding(padding < 0.5) = 0;	
-%	padded_data = [data; padde_data];
-%return
+clear all;
 close all;
 rng('default')
-
 j=i;
-
-% 1.  On class canvas you find the pair of MATLAB functions file2bin.m and bin2file.m. Study these two
-%     functions and confirm their operation by converting a .txt file (here, call it ‘input.txt’) to binary,
-%     and converting the binary bits to a file (here, call it ‘output.txt’). The latter file should have the
-%     same content as your original file
-
-
-%raw_bits = file2bin('input.txt');
-%%stem(raw_bits);
-%bin2file(raw_bits, 'output.txt');
-
-
-% 2. The bit sequence (call it ‘bits’) that you obtain from a .txt file is a vector of zeros and ones.
-%    Examine the length of the vector ‘bits’ and if it is not a multiple of 32, extend its length by
-%    appending sufficient number of random bits to its end to make its length a multiple of 32. This is
-%    related to the fact that we wish to make an OFDM system that transmits 32 bits of data (16 QPSK
-%    symbols) in each OFDM symbol. Using the ‘reshape’ function of MATLAB covert the extended
-%    bits to a matrix with 32 rows. We will transmit one column of this matrix th2ough each OFDM
-%    symbol.
 
 %% Read File to bit vector
 dbg = 1;
-raw_bits_short = file2bin('input.txt');
-pilot_seq = file2bin('pilot_sequence.txt');
+SNR = 40;
+raw_bits_short = file2bin('input.txt');  % Currently Matthew 5
+pilot_seq = file2bin('pilot_sequence.txt'); % Single line 'deadbeef' creating 4 pilots 
 
-%% Calculate padding
+%% Calculate padding to make payload divisible by 32
 remainder = mod(length(raw_bits_short), 32);
 padding = rand(32 - remainder, 1);
 padding(padding <= 0.5) = 0;
 padding(padding > 0.5) = 1;
-%stem(padding)
 raw_bits_mod = [raw_bits_short; padding];
 
-
 %% SERDES (Serial to Parallel with reshape)
-test_bits = reshape(pilot_seq, 32, []);
-bits = reshape(raw_bits_mod, 32, []);
+test_bits = reshape(pilot_seq, 32, []); 	% Pilot sequence in bits representing the string 'deadbeef'
+bits = reshape(raw_bits_mod, 32, []);   	% Data bits read from file
 
-%% SERDES bits with pilot sequence at beginning
+%% Parallel bits with pilot sequence of 4 pilots at beginning
 sk_bits = [test_bits bits];
 
-%% Map 32 bit vectors to 16 4bit QPSK/QAM symbols
-sk = [];
-test_sk = [];
+%% | S/P MAPPING BLOCK |
+%% Map each 32 bit vectors to 16 2bit 4QPSK/4QAM symbols 
+sk = [];  									% bits mapped to 16 2bit 4QPSK/4QAM symbols 16 x m
+test_sk = [];								% Test pilot array
 for ii = 1:length(sk_bits(1,:))
 	sk_tmp = bits2QPSK(sk_bits(1:32,ii));
 	sk = [sk sk_tmp];
 
+
 	if(ii == 4 & dbg == 1)
 		test_sk = [test_sk sk(:,1:4)];
-		figure(1)
+		figure()
 		subplot(4,1,1)
 		stem(real(test_sk(:,1))); hold on; stem(imag(test_sk(:,1))); hold off;
 		subplot(4,1,2)
@@ -76,53 +46,70 @@ for ii = 1:length(sk_bits(1,:))
 	end
 end
 
-%% Symbol Debug
-%figure(1)
-%scatter(real(sk), imag(sk));
-
+%% | IFFT and ADD CP BLOCK |
 %% OFDM IFFT of 16 parallel symobols to a multiplexed TX packet
-L=4-1;
+L=4;
 xk = [];
 xk_no_cp = [];
 for kk = 1:length(sk)
 	xk_tmp = ifft(sk(:, kk), 16);
-	xk_tmp_cp = [xk_tmp(end-L:end); xk_tmp];
+	xk_tmp_cp = [xk_tmp(end-L+1:end); xk_tmp];
 	%xk_tmp_cp = [xk_tmp; xk_tmp(end-L:end)];	
 	xk_no_cp = [xk_no_cp; xk_tmp];
 	xk = [xk; xk_tmp_cp];
 end
 
-
-%% Add channel effects
-TX = xk;
-
+%% | CHANNEL BLOCK |
 %% Add channel noise and rx noise
-%RX = TX;
-%% Load Equalization
-RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j].');
-%eq_coeff = load('eq_coeff.mat');
-%eq_c = eq_coeff.out;
+TX = xk;
+%RX = TX;  % Ideal Channel
+RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j].'); 	% Non-ideal Channel
+RX_noise = awgn(RX, SNR); 							% Receiver and Channel noise in the form of AWGN
+
+%% Plot the effects of AWGN with given SNR value set at top of file
+if(dbg == 1)
+  figure()
+  plot(real(RX(1:128))); hold on;
+  plot(real(RX(1:128) + RX_noise(1:128))); hold off;
+end
+
+%% Toggle AWGN to RX
+RX = RX + RX_noise;
 
 %% Serialize and FFT
 sk_rx = [];
+sk_rx_unequalized = [];
 equalizer = ones(16,1);
+
+%% | RX CP REMOVAL, EQ, FFT BLOCK |
+%% Parallelize loop
 for ii = 20:20:length(RX)-20
-	%yk_tmp = RX(ll-19:ll-4);
-	yk_tmp = RX(ii-19+4:ii);	
+
+	% Remove CP
+	yk_tmp = RX(ii-19+L:ii);	
 	sk_rx_tmp = fft(yk_tmp, 16);
-	%sk_rx_tmp_corrected = sk_rx_tmp./eq_c;
+
+	% Append current received symbol sk_rx
+    sk_rx_unequalized = [sk_rx sk_rx_tmp];	
     sk_rx = [sk_rx sk_rx_tmp./equalizer];
 
-	%sk_rx = [sk_rx sk_rx_tmp_corrected];
-	if( ii == 20*4)
+    % Calculate Equalizer tap values using channel gain
+	if( ii == 20*4) % 20*4 is length of serialized pilot symbols with added CP
 		test_sk_rx = sk_rx(:, 1:4);
-		eq1 = test_sk_rx(:,1)./test_sk(:,1);
-		eq2 = test_sk_rx(:,2)./test_sk(:,2);
-		eq3 = test_sk_rx(:,3)./test_sk(:,3);
-		eq4 = test_sk_rx(:,4)./test_sk(:,4);
+
+		% Considered using checks for channel equalization consistency over 4 Pilot Symbols
+		% However, boolean comparison has floating point issues, just use Pilot 1 for EQ
+		eq1 = test_sk_rx(:,1)./test_sk(:,1); % Calc EQ pilot 1
+		eq2 = test_sk_rx(:,2)./test_sk(:,2); % Calc EQ pilot 2
+		eq3 = test_sk_rx(:,3)./test_sk(:,3); % Calc EQ pilot 3
+		eq4 = test_sk_rx(:,4)./test_sk(:,4); % Calc EQ pilot 4
+
+		% Equalize using Pilot Symbol 1
 		equalizer = eq1;
+
+		% Plot of rx pilot symobols for debug and analysis
 		if(dbg == 1)
-		  figure(2)
+		  figure()
 		  subplot(4,1,1)
 		  stem(real(test_sk_rx(:,1))); hold on; stem(imag(test_sk_rx(:,1))); hold off;
 		  subplot(4,1,2)
@@ -135,15 +122,33 @@ for ii = 20:20:length(RX)-20
 	end
 end
 
+%% Remove 4 Pilot Symbols for equalization from transmission
+sk_rx_unequalized = sk_rx_unequalized(:,5:end);
 sk_rx = sk_rx(:,5:end);
 
-%% Reserialize
+%% Display Symbols, compare equalized vs. unequalized
+if(dbg == 1)
+  figure()
+  sk_rx_unrolled = reshape(sk_rx, [], 1);
+  sk_rx_unrolled_unequalized = reshape(sk_rx_unequalized, [], 1);
+  subplot(2,1,1)
+  plot(sk_rx_unrolled_unequalized, 'r.');
+  axis('square');
+  axis([-2 2 -2 2]);
+  subplot(2,1,2)
+  plot(sk_rx_unrolled, 'b.');
+  axis([-2 2 -2 2]);
+  axis('square');
+end
+
+%% Re-map symbols to bits (Serialize)
 rx_bits = [];
 for jj = 1:length(sk_rx(1, :))
 	rx_bits_tmp = QPSK2bits(sk_rx(:,jj));
 	rx_bits = [rx_bits; rx_bits_tmp];
 end
 
+%% Convert stream of bits to text data
 bin2file(rx_bits, 'pilot_test2.txt');
 
 return
@@ -155,7 +160,7 @@ for ii = 1:length(sk_rx(:,1))-10
 	eq_coeff = [eq_coeff eq_tmp];
 	corrected_rx = sk_rx(:, ii)./eq_tmp;
 
-	figure(122)
+	figure()
 	subplot(4,1,1)
 	stem(real(sk(:,ii))); hold on; stem(real(sk_rx(:,ii))); hold off;
 	legend('real sk tx', 'real sk rx');
@@ -260,10 +265,6 @@ hold off;
 %    convert QPSK symbols to bits
 %    convert the matrix of bits to a column vector
 %    bin2file(...)
-
-
-
-%bin2file(out_bits, 'crazy_output.txt');
 
 
 % 4. Following Figure 6.7 of the class text, by calling/using the above functions/codes, develop a program
