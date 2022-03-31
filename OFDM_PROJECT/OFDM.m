@@ -5,6 +5,7 @@ j=i;
 
 %% Read File to bit vector
 dbg = 1;
+demo_on = 1;
 SNR = 40;
 raw_bits_short = file2bin('input.txt');  % Currently Matthew 5
 pilot_seq = file2bin('pilot_sequence.txt'); % Single line 'deadbeef' creating 4 pilots 
@@ -32,17 +33,22 @@ for ii = 1:length(sk_bits(1,:))
 	sk = [sk sk_tmp];
 
 
-	if(ii == 4 & dbg == 1)
+	if(ii == 4)
+		% Create 4 Pilot Symobls
 		test_sk = [test_sk sk(:,1:4)];
-		figure()
-		subplot(4,1,1)
-		stem(real(test_sk(:,1))); hold on; stem(imag(test_sk(:,1))); hold off;
-		subplot(4,1,2)
-		stem(real(test_sk(:,2))); hold on; stem(imag(test_sk(:,2))); hold off;		
-		subplot(4,1,3)
-		stem(real(test_sk(:,3))); hold on; stem(imag(test_sk(:,3))); hold off;		
-		subplot(4,1,4)
-		stem(real(test_sk(:,4))); hold on; stem(imag(test_sk(:,4))); hold off;				
+
+		% Debug only
+		if(0)
+		  figure()
+		  subplot(4,1,1)
+		  stem(real(test_sk(:,1))); hold on; stem(imag(test_sk(:,1))); hold off;
+		  subplot(4,1,2)
+		  stem(real(test_sk(:,2))); hold on; stem(imag(test_sk(:,2))); hold off;		
+		  subplot(4,1,3)
+		  stem(real(test_sk(:,3))); hold on; stem(imag(test_sk(:,3))); hold off;		
+		  subplot(4,1,4)
+		  stem(real(test_sk(:,4))); hold on; stem(imag(test_sk(:,4))); hold off;				
+		end
 	end
 end
 
@@ -62,15 +68,29 @@ end
 %% | CHANNEL BLOCK |
 %% Add channel noise and rx noise
 TX = xk;
-%RX = TX;  % Ideal Channel
-RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j].'); 	% Non-ideal Channel
-RX_noise = awgn(RX, SNR); 							% Receiver and Channel noise in the form of AWGN
+	
+
+% channel options
+% RX = TX;  % Ideal Channel
+RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j 0.5+1*j].'); 	% Non-ideal Channel option 1
+% RX = conv(TX, [1 -0.5+0.9*j 0.3-0.8*j].'); 	        % Non-ideal Channel option 2
+% RX = conv(TX, [1 -0.8].'); 	                        % Non-ideal Channel option 3
+% RX = conv(TX, [1 -0.8 0.8*j].'); 	                    % Non-ideal Channel option 4
+
+%% Failing channel options
+% RX = conv(TX, [1 -0.8 0.8*j 0.3-0.8*j -0.3+0.9j -0.5].'); % Non-ideal Channel option 5 (Longer than CP, causes failure) 
+% RX = conv(TX, [1 -1].'); 	                    			% Non-ideal Channel option 6 (Longer than CP, causes failure)   
+
+% SNR is set at top of file
+RX_noise = awgn(RX, SNR); 							    % Receiver and Channel noise in the form of AWGN
 
 %% Plot the effects of AWGN with given SNR value set at top of file
-if(dbg == 1)
+if(dbg == 1 & 0)
   figure()
   plot(real(RX(1:128))); hold on;
   plot(real(RX(1:128) + RX_noise(1:128))); hold off;
+  title('Effects of AWGN on real part of RX data');
+  legend('RX data', "RX data with AWGN")
 end
 
 %% Toggle AWGN to RX
@@ -98,7 +118,7 @@ for ii = 20:20:length(RX)-20
 		test_sk_rx = sk_rx(:, 1:4);
 
 		% Considered using checks for channel equalization consistency over 4 Pilot Symbols
-		% However, boolean comparison has floating point issues, just use Pilot 1 for EQ
+		% However, boolean comparison has floating point precision issues, just use Pilot 1 for EQ
 		eq1 = test_sk_rx(:,1)./test_sk(:,1); % Calc EQ pilot 1
 		eq2 = test_sk_rx(:,2)./test_sk(:,2); % Calc EQ pilot 2
 		eq3 = test_sk_rx(:,3)./test_sk(:,3); % Calc EQ pilot 3
@@ -108,7 +128,7 @@ for ii = 20:20:length(RX)-20
 		equalizer = eq1;
 
 		% Plot of rx pilot symobols for debug and analysis
-		if(dbg == 1)
+		if(dbg == 1 & 0)
 		  figure()
 		  subplot(4,1,1)
 		  stem(real(test_sk_rx(:,1))); hold on; stem(imag(test_sk_rx(:,1))); hold off;
@@ -135,8 +155,14 @@ if(dbg == 1)
   plot(sk_rx_unrolled_unequalized, 'r.');
   axis('square');
   axis([-2 2 -2 2]);
+  xlabel('Real')
+  ylabel('Imag')  
+  title('Unequalized RX data 4QAM constellation')
   subplot(2,1,2)
   plot(sk_rx_unrolled, 'b.');
+  xlabel('Real')
+  ylabel('Imag')  
+  title('Equalized RX data 4QAM constellation')  
   axis([-2 2 -2 2]);
   axis('square');
 end
@@ -149,7 +175,7 @@ for jj = 1:length(sk_rx(1, :))
 end
 
 %% Convert stream of bits to text data
-bin2file(rx_bits, 'pilot_test2.txt');
+bin2file(rx_bits, 'output.txt');
 
 return
 
@@ -163,132 +189,18 @@ for ii = 1:length(sk_rx(:,1))-10
 	figure()
 	subplot(4,1,1)
 	stem(real(sk(:,ii))); hold on; stem(real(sk_rx(:,ii))); hold off;
-	legend('real sk tx', 'real sk rx');
+	legend('real s_k tx', 'real s_k rx');
 	subplot(4,1,2)
 	stem(imag(sk(:,ii))); hold on; stem(imag(sk_rx(:,ii))); hold off;	
-	legend('imag sk tx', 'imag sk rx');	
+	legend('imag s_k tx', 'imag s_k rx');	
 	subplot(4,1,3)
 	stem(real(sk(:,ii))); hold on; stem(real(sk_rx(:,ii))); stem(real(corrected_rx)); hold off;	
-	legend('real sk tx', 'real sk rx', 'real corrected rx');		
+	legend('real s_k tx', 'real s_k rx', 'real equalized rx');		
 	subplot(4,1,4)
 	stem(imag(sk(:,ii))); hold on; stem(imag(sk_rx(:,ii))); stem(imag(corrected_rx)); hold off;	
-	legend('imag sk tx', 'imag sk rx', 'imag corrected rx');		
+	legend('imag sk tx', 'imag sk rx', 'imag equalized rx');		
 
 end
 
 return
 
-eq1 = sk_rx_tmp./sk_tmp;
-sk_rx_corrected = sk_rx_tmp./eq1;
-
-subplot(4, 1, 1)
-stem(real(sk_tmp));
-hold on;
-stem(real(sk_rx_tmp));
-legend('real tx', 'real rx')
-hold off;
-subplot(4, 1, 2)
-stem(imag(sk_tmp));
-hold on;
-stem(imag(sk_rx_tmp));
-legend('imag tx', 'imag rx')
-hold off;
-subplot(4, 1, 3)
-stem(real(sk_tmp));
-hold on;
-stem(real(sk_rx_corrected));
-legend('real tx', 'real corrected rx')
-hold off;
-legend('real rx', 'real eq rx')
-subplot(4, 1, 4)
-stem(imag(sk_tmp));
-hold on;
-stem(imag(sk_rx_corrected));
-legend('imag tx', 'imag corrected rx')
-hold off;
-
-
-
-
-
-
-
-%figure(123)
-%subplot(4, 2, 1)
-%stem(real(xk_tmp));
-%title('x real')
-%subplot(4, 2, 2)
-%stem(imag(xk_tmp));
-%title('x imag')
-%subplot(4, 2, 3)
-%stem(real(yk_tmp));
-%title('y real')
-%subplot(4, 2, 4)
-%stem(imag(yk_tmp));
-%title('y imag')
-%subplot(4, 2, 5)
-%stem(real_eq);
-%hold on;
-%stem(imag_eq);
-%legend('real eq', 'imag eq');
-%hold off;
-%subplot(4, 2, 6)
-%stem(real(yk_tmp));
-%hold on;
-%stem(real(eq_result));
-%legend('y real', 'eq real result')
-%hold off;
-%subplot(4, 2, 7)
-%stem(imag(yk_tmp));
-%hold on;
-%stem(imag(eq_result));
-%legend('y imag', 'eq imag result')
-%hold off;
-%subplot(4, 2, 8)
-%stem(real(xk_tmp));
-%hold on;
-%stem(real(eq_result));
-%legend('y real', 'x real result')
-%hold off;
-
-
-
-
-% 3. Develop a MATLAB function that take a column of 32 bits, and covert them to a column of
-%    16 QPSK symbols, using a gray coding of your choice. Call it bits2QPSK.m Also, develop the
-%    counterpart of bits2QPSK.m to convert symbols back to bits. Call it QPSK2bits.m.
-%    Examine the codes that you have written so far to make sure everything works as planned. Your
-%    test procedure should examine the following steps in sequence:
-%    file2bin(...)
-%    reshape the vector ‘bits’
-%    convert bits to QPSK symbols
-%    convert QPSK symbols to bits
-%    convert the matrix of bits to a column vector
-%    bin2file(...)
-
-
-% 4. Following Figure 6.7 of the class text, by calling/using the above functions/codes, develop a program
-%    for an OFDM transceiver (transmitter plus receiver) with IFFT/FFT length 16 and CP length 4.
-%    Assuming an ideal channel, examine the correct functionality of your codes.
-
-% 5. By introducing a channel with impulse response c = [1 −0.5+0.9j 0.3−0.8j 0.5+1j], examine the
-%    result of your code. Expectedly, it is not going to work! You need a set of single tap equalizers to
-%    compensate the distortion introduced by the channel. One way of finding the equalizers coefficients
-%    is to transmit a known OFDM symbol (16 QPSK symbols) at the beginning of transmission and
-%    set the equalizers coefficients so that the known OFDM symbol appears after equalizers. Using an
-%    arbitrary OFDM symbol of your choice modify your code to be able to transmit data through any
-%    arbitrary channel of a length smaller than or equal to the CP length.
-
-
-% 6. Examine the functionality of your code by adding channel noise and a few random choices of the
-%    channel impulse response.
-
-
-% Note: Since the transmission is through an equivalent baseband channel, all signals, including channel
-% noise and impulse response are, in general, complex-valued.
-% Report: Summarize your finding in a report, consisting an abstract of 100 words or less, an introduction
-% explaining how OFDM works (think of teaching one of your peers), two or three sections explaining your
-% codes, and a conclusion of 100 words or less. The total length of your report should be limited to 3
-% pages of double space text and as many figures as you wish. Keep text and figures in separate
-% pages. Submit a pdf copy of your report along with your MATLAB codes all in a zip file with the name
-% DigCom2022Project(your name).zip. Upload on canvas.
